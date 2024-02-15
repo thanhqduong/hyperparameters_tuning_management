@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Interface with Tabs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> 
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css">
+	<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+	<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" crossorigin="anonymous"></script>
+    <script type="text/javascript" charset="utf-8">
+        function getTableData(table_name) {
+            var tableData = [];
+
+            $('#'+ table_name + ' tbody tr').each(function() {
+            var rowData = [];
+
+            $(this).find('td').each(function() {
+                rowData.push($(this).text());
+            });
+
+            tableData.push(rowData);
+            });
+
+            return tableData;
+        }
+        var socket;
+        $(document).ready(function() {
+
+            socket = io();
+
+            socket.on('popup_add', function(data) {
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('popup-1-container').style.display = 'block';
+
+                var div1 = document.getElementById("popup-add-table-data-1");
+                div1.innerHTML = '';
+                div1.insertAdjacentHTML('beforeend', data['data_1']);
+
+                var div2 = document.getElementById("popup-add-table-data-2");
+                div2.innerHTML = '';
+                div2.insertAdjacentHTML('beforeend', data['data_2']);
+            });
+
+            $('form#add_manual').submit(function (event) {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                socket.emit('add_manual_search', { data: Object.fromEntries(formData) });
+                $(this).find('input[type=text], input[type=number], textarea').val('');
+            });
+
+            $('form#add_random').submit(function (event) {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                socket.emit('add_random_search', { data: Object.fromEntries(formData) });
+                $(this).find('input[type=text], input[type=number], textarea').val('');
+            });
+
+            $('form#add_grid').submit(function (event) {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                socket.emit('add_grid_search', { data: Object.fromEntries(formData) });
+                $(this).find('input[type=text], input[type=number], textarea').val('');
+            });
+
+            
+
+            $('#close_popup_add').on('click', function() {
+                var dataToSend = getTableData('popup-add-table-1');
+                socket.emit('get_add_data', { data: dataToSend });
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('popup-1-container').style.display = 'none';
+            });
+
+
+            socket.on('update_pending', function(data) {
+                var div = document.getElementById("pending-data");
+                div.innerHTML = '';
+                div.insertAdjacentHTML('beforeend', data['data']);
+            } );
+
+            socket.on('update_result', function(data) {
+                var div = document.getElementById("result-data");
+                div.innerHTML = '';
+                div.insertAdjacentHTML('beforeend', data['data']);
+            } );
+
+
+        });
+    </script>
+    
+</head>
+<body>
+    <div class="grid-container">
+        <div id="overlay"></div>
+
+        <div id="popup-1-container">
+            <button id="close_popup_add">×</button>
+            <h4>Confirm adding searches</h4>
+            <br>
+            <p>Simply close this popup to add those. Drag to change training order or delete to not add the job.</p>
+            <div class="table-popup-add">
+                <table id="popup-add-table-1" name="popup-add-table-1">
+                    <thead>
+                    <tr>
+                        <th></th>
+                        <th>Epochs</th>
+                        <th>LearnRate</th>
+                        <th>Dropout</th>
+                        <th>BatchSize</th>
+                        <th>Optimizer</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody tabindex="0" id="popup-add-table-data-1"></tbody>
+                </table>
+            </div>
+            <br>
+            <p> (Duplicates) Those searchs are either being run or already finished, so will not be added.</p>
+            <div class="table-popup-add">
+                <table id="popup-add-table-2" name="popup-add-table-2">
+                    <thead>
+                    <tr>
+                        <th>Epochs</th>
+                        <th>LearnRate</th>
+                        <th>Dropout</th>
+                        <th>BatchSize</th>
+                        <th>Optimizer</th>
+                    </tr>
+                    </thead>
+                    <tbody tabindex="0" id="popup-add-table-data-2"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab tab1">
+            <h2>Add Search</h2>
+            <div class="sub-tab-container">
+                <div class="sub-tab" onclick="showSubTab('sub-tab1-1', 'sub-tab-content-1')">Manual</div>
+                <div class="sub-tab" onclick="showSubTab('sub-tab1-2', 'sub-tab-content-1')">Random</div>
+                <div class="sub-tab" onclick="showSubTab('sub-tab1-3', 'sub-tab-content-1')">Grid</div>
+            </div>
+            <div id="sub-tab1-1" class="sub-tab-content-1" style="display: block;">
+                <br>
+                <p>Enter one manual search:</p>
+                <form id="add_manual" method="POST" action='#'>
+                    <input type="number" name="learning_rate" id="learning_rate" placeholder="Learning Rate" min = 0.0001 step = 0.0001 required><br>
+                    <input type="number" name="num_epochs" id="num_epochs" placeholder="Number of Epochs" min = 2 max = 20 step = 1 required><br>
+                    <input type="number" name="batch_size" id="batch_size" placeholder="Batch Size" min = 5 max = 100 step = 1 required><br>
+                    <input type="number" name="dropout" id="dropout" placeholder="Dropout" min = 0.01 max = 1 step = 0.01 required><br>
+                    <input type="radio" id="adam_opt" name="optimizer" value="adam" checked>
+                    <label for="html">Adam</label>
+                    <input type="radio" id="sgd_opt" name="optimizer" value="sgd">
+                    <label for="css">SGD</label><br>
+                    <input type="submit">
+                </form>
+            </div>
+            <div id="sub-tab1-2" class="sub-tab-content-1" style="display: none;">
+                <br>
+                <p>Enter criteria for uniform random search:</p>
+                <form id="add_random" method="POST" action='#'>
+                    <input type="number" name="num_count" id="num_count" placeholder="Number of Searchs" min = 1 max = 20 step = 1 required><br>
+                    <input type="number" name="min_learning_rate" id="min_learning_rate" placeholder="Min Learning Rate" min = 0.0001 step = 0.0001 required>
+                    <input type="number" name="max_learning_rate" id="max_learning_rate" placeholder="Max Learning Rate" min = 0.0001 step = 0.0001 required><br>
+                    <input type="number" name="min_num_epochs" id="min_num_epochs" placeholder="Min Number of Epochs" min = 2 max = 20 step = 1 required>
+                    <input type="number" name="max_num_epochs" id="max_num_epochs" placeholder="Max Number of Epochs" min = 2 max = 20 step = 1 required><br>
+                    <input type="number" name="min_batch_size" id="min_batch_size" placeholder="Min Batch Size" min = 5 max = 100 step = 1 required>
+                    <input type="number" name="max_batch_size" id="max_batch_size" placeholder="Max Batch Size" min = 5 max = 100 step = 1 required><br>
+                    <input type="number" name="min_dropout" id="min_dropout" placeholder="Min Dropout" min = 0.01 max = 1 step = 0.01 required>
+                    <input type="number" name="max_dropout" id="max_dropout" placeholder="Max Dropout" min = 0.01 max = 1 step = 0.01 required><br>
+                    <input type="checkbox" id="adam_opt" name="optimizer_1" value="adam">
+                    <label for="html">Adam</label>
+                    <input type="checkbox" id="sgd_opt" name="optimizer_2" value="sgd">
+                    <label for="css">SGD</label><br>
+                    <input type="submit">
+                </form>
+
+            </div>
+            <div id="sub-tab1-3" class="sub-tab-content-1" style="display: none;">
+                <br>
+                <p>Enter criteria for grid search:</p>
+                <form id="add_grid" method="POST" action='#'>
+                    <input type="number" name="min_learning_rate" id="min_learning_rate" placeholder="Min Learning Rate" min = 0.0001 step = 0.0001 required>
+                    <input type="number" name="max_learning_rate" id="max_learning_rate" placeholder="Max Learning Rate" min = 0.0001 step = 0.0001 required>
+                    <input type="number" name="step_learning_rate" id="step_learning_rate" placeholder="Step" min = 0 step = 0.0001 required class='grid_step'><br>
+                    <input type="number" name="min_num_epochs" id="min_num_epochs" placeholder="Min Number of Epochs" min = 2 max = 20 step = 1 required>
+                    <input type="number" name="max_num_epochs" id="max_num_epochs" placeholder="Max Number of Epochs" min = 2 max = 20 step = 1 required>
+                    <input type="number" name="step_num_epochs" id="step_num_epochs" placeholder="Step" min = 0 step = 1 required class='grid_step'><br>
+                    <input type="number" name="min_batch_size" id="min_batch_size" placeholder="Min Batch Size" min = 5 max = 100 step = 1 required>
+                    <input type="number" name="max_batch_size" id="max_batch_size" placeholder="Max Batch Size" min = 5 max = 100 step = 1 required>
+                    <input type="number" name="step_batch_size" id="step_batch_size" placeholder="Step" min = 0 step = 1 required class='grid_step'><br>
+                    <input type="number" name="min_dropout" id="min_dropout" placeholder="Min Dropout" min = 0.01 max = 1 step = 0.01 required>
+                    <input type="number" name="max_dropout" id="max_dropout" placeholder="Max Dropout" min = 0.01 max = 1 step = 0.01 required>
+                    <input type="number" name="step_dropout" id="step_dropout" placeholder="Step" min = 0 step = 0.01 required class='grid_step'><br>
+                    <input type="checkbox" id="adam_opt" name="optimizer_1" value="adam">
+                    <label for="html">Adam</label>
+                    <input type="checkbox" id="sgd_opt" name="optimizer_2" value="sgd">
+                    <label for="css">SGD</label><br>
+                    <input type="submit">
+                </form>
+            </div>
+        </div>
+
+        <div class="tab tab2">
+            <h2>Running Search</h2>
+            <div class="table-container-1">
+                <table id="pending" name="pending">
+                    <thead>
+                    <tr>
+                        <th></th>
+                        <th>Epochs</th>
+                        <th>LearnRate</th>
+                        <th>Dropout</th>
+                        <th>BatchSize</th>
+                        <th>Optimizer</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody tabindex="0" id="pending-data">
+                    </tbody>
+                
+
+                </table>
+            </div>
+        </div>
+
+        <div class="tab tab3">
+            <h2>View Finished Search</h2>
+            <!-- <div class="sub-tab-container">
+                <div class="sub-tab" onclick="showSubTab('sub-tab3-1', 'sub-tab-content-3')">Result</div>
+                <div class="sub-tab" onclick="showSubTab('sub-tab3-2', 'sub-tab-content-3')">Visualization</div>
+            </div>
+            <div id="sub-tab3-1" class="sub-tab-content-3" style="display: block;"> -->
+                <br>
+                <p>All results are here. Click the column name to sort.</p>
+                <br>
+                <div class="table-container-2">
+                    <table id="resultTable" class="display">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)">LearnRate</th>
+                                <th onclick="sortTable(1)">Dropout</th>
+                                <th onclick="sortTable(2)">BatchSize</th>
+                                <th onclick="sortTable(3)">Epochs</th>
+                                <th onclick="sortTable(4)">Optimizer</th>
+                                <th onclick="sortTable(5)">Runtime</th>
+                                <th onclick="sortTable(6)">Accuracy_Score</th>
+                                <th onclick="sortTable(7)">F1_Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="result-data"></tbody>
+                    </table>
+                </div>
+            <!-- </div>
+            <div id="sub-tab3-2" class="sub-tab-content-3" style="display: none;">
+            </div> -->
+        </div>
+    </div>
+
+    <script>
+        function showSubTab(tabId, hideId) {
+            var subTabs = document.querySelectorAll("." + hideId);
+            subTabs.forEach(function(subTab) {
+                subTab.style.display = 'none';
+            });
+    
+            var selectedTab = document.getElementById(tabId);
+            if (selectedTab) {
+                selectedTab.style.display = 'block';
+            }
+        }
+
+        function deleteRow(button) {
+            var row = button.parentNode;
+            var rowData = getRowData(row);
+            row.parentNode.removeChild(row);
+
+            var element = document.getElementById('overlay');
+            if (element) {
+                var computedStyle = window.getComputedStyle(element);
+                if (computedStyle.display === "none") {
+                    var dataToSend = getTableData('pending');
+                    socket.emit('get_pending_data', { data: dataToSend });
+                };
+            }
+
+        }
+
+        function getRowData(row) {
+            var cells = row.cells;
+            var rowData = [];
+
+            for (var i = 0; i < cells.length; i++) {
+                var cellData = cells[i].textContent.trim();
+                rowData.push(cellData);
+            }
+
+            return rowData;
+        }
+
+    
+        $(document).ready(function () {
+            const rows = document.querySelectorAll('#pending-data tbody tr[draggable="true"]');
+
+            const rows_pop_up_1 = document.querySelectorAll('#popup-add-table-data-1 tbody tr[draggable="true"]');
+            
+            console.log(rows)
+            rows.forEach(row => {
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('drop', handleDropPending);
+            });
+
+            rows_pop_up_1.forEach(row => {
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('drop', handleDrop);
+            });
+    
+            function handleDragStart(event) {
+                console.log('drasg')
+                event.dataTransfer.setData('text/plain', event.target.closest('tr').rowIndex);
+            }
+    
+            function handleDragOver(event) {
+                event.preventDefault();
+            }
+    
+            function handleDrop(event) {
+                event.preventDefault();
+                const fromIndex = parseInt(event.dataTransfer.getData('text/plain'), 10);
+                const toIndex = event.target.closest('tr').rowIndex;
+    
+                const tbody = event.target.closest('tbody');
+                const rows = Array.from(tbody.children);
+                const [removedRow] = rows.splice(fromIndex - 1, 1);
+                rows.splice(toIndex - 1, 0, removedRow);
+    
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            }
+
+            function handleDropPending(event) {
+                event.preventDefault();
+                const fromIndex = parseInt(event.dataTransfer.getData('text/plain'), 10);
+                const toIndex = event.target.closest('tr').rowIndex;
+    
+                const tbody = event.target.closest('tbody');
+                const rows = Array.from(tbody.children);
+                const [removedRow] = rows.splice(fromIndex - 1, 1);
+                rows.splice(toIndex - 1, 0, removedRow);
+    
+                // Update the table
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+
+                var dataToSend = getTableData('pending');
+                socket.emit('get_pending_data', { data: dataToSend });
+
+            }
+
+        });
+        var sortOrder = 1;  // 1 for ascending, -1 for descending
+
+        function getTableResultData() {
+            var tableBody = document.getElementById("result-data");
+            var rows = Array.from(tableBody.rows);
+            var data = rows.map(row => {
+                var cells = Array.from(row.cells);
+                return cells.map(cell => cell.textContent.trim());
+            });
+            return data;
+        }
+
+        function setTableResultData(data) {
+            var tableBody = document.getElementById("result-data");
+            tableBody.innerHTML = '';
+            data.forEach(rowData => {
+                var row = document.createElement("tr");
+                rowData.forEach(cellData => {
+                    var cell = document.createElement("td");
+                    cell.textContent = cellData;
+                    row.appendChild(cell);
+                });
+                tableBody.appendChild(row);
+            });
+        }
+
+        function sortTable(columnIndex) {
+            var currentData = getTableResultData();
+            sortOrder = (sortOrder === 1) ? -1 : 1;
+
+            // Sort the current data based on the clicked column index and sorting order
+            currentData.sort((a, b) => {
+                var comparison = a[columnIndex].localeCompare(b[columnIndex]);
+                return comparison * sortOrder;
+            });
+
+            setTableResultData(currentData);
+        }
+    </script>
+</body>
+</html>
