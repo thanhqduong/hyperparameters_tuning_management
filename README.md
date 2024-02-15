@@ -1,14 +1,14 @@
 ### Format
--- database
------- main.db: SQLite db for storing data
--- model
------- __init__.py
------- model.py: NMIST model
--- static
------- styles.css
--- templates
------- index.html
--- app.py
+-- database <br>
+------ main.db: SQLite db for storing data <br>
+-- model <br>
+------ \__init__.py <br>
+------ model.py: NMIST model <br>
+-- static <br>
+------ styles.css <br>
+-- templates <br>
+------ index.html <br>
+-- app.py <br>
 
 ### Operation: 
 Access http://localhost:5000/ after running app.py
